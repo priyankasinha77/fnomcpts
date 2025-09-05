@@ -44,7 +44,9 @@ const odataQuerySchema = z.object({
     crossCompany: z.boolean().optional().describe("Set to true to query across all companies."),
 });
 
-
+const createCustomerSchema = z.object({
+    customerData: z.record(z.unknown()).describe("A JSON object for the new customer. Must include dataAreaId, CustomerAccount, etc."),
+});
 
 /**
  * Creates and configures the MCP server with all the tools for the D365 API.
@@ -112,8 +114,31 @@ export const getServer = (): McpServer => {
             });
         }
     );
-
- 
+    
+server.tool(
+        'createCustomer',
+        'Creates a new customer record in CustomersV3.',
+        createCustomerSchema.shape,
+        async ({ customerData }: z.infer<typeof createCustomerSchema>, context: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+            const url = `${process.env.DYNAMICS_RESOURCE_URL}/data/CustomersV3`;
+            return makeApiCall('POST', url, customerData as Record<string, unknown>, async (notification) => {
+                await safeNotification(context, notification);
+            });
+        }
+    );
+    
+ server.tool(
+        'getODataMetadata',
+        'Retrieves the OData $metadata document for the service.',
+        z.object({}).shape,
+        async (_args: {}, context: RequestHandlerExtra<ServerRequest, ServerNotification>) => {
+             const url = `${process.env.DYNAMICS_RESOURCE_URL}/data/$metadata`;
+             return makeApiCall('GET', url.toString(), null, async (notification) => {
+                await safeNotification(context, notification);
+            });
+        }
+    );
     return server;
 };
+
 
